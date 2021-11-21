@@ -1,4 +1,6 @@
+import json
 import requests
+from bs4 import BeautifulSoup
 
 
 class ZillowScraper:
@@ -24,6 +26,20 @@ class ZillowScraper:
         response = requests.get(url, headers=self.headers, params=params)
         print(response)
         return response
+
+    def parse(self, response):
+        soup = BeautifulSoup(response, features="html.parser")
+        listings = soup.find(
+            "ul",
+            {
+                "class": "photo-cards photo-cards_wow photo-cards_short photo-cards_extra-attribution"
+            },
+        )
+        for listing in listings.contents:
+            script = listing.find("script", {"type": "application/ld+json"})
+            if script:
+                json_script = json.loads(script.contents[0])
+                print(json_script["name"])
 
     def run(self):
         url = "https://www.zillow.com/homes/McKinney,-TX_rb/"
@@ -53,7 +69,8 @@ class ZillowScraper:
             "mapZoom": 12,
         }
 
-        result = self.fetch(url, params)
+        fethced_response = self.fetch(url, params)
+        self.parse(fethced_response.text)
 
 
 if __name__ == "__main__":
