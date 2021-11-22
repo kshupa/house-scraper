@@ -1,9 +1,11 @@
+import csv
 import json
 import requests
 from bs4 import BeautifulSoup
 
 
 class ZillowScraper:
+    final_results = []
     headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
         "accept-encoding": "gzip, deflate, br",
@@ -39,12 +41,28 @@ class ZillowScraper:
             script = listing.find("script", {"type": "application/ld+json"})
             if script:
                 json_script = json.loads(script.contents[0])
-                print(json_script["name"])
+                self.final_results.append(
+                    {
+                        "name": json_script["name"],
+                        "url": json_script["url"],
+                        "floor_size": json_script["floorSize"]["value"],
+                        "price": listing.find("div", {"class": "list-card-price"}).text,
+                    }
+                )
+        print(self.final_results)
+
+    def write_to_csv(self):
+        with open("zillow.csv", "w") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=self.final_results[0].keys())
+            writer.writeheader
+
+            for row in self.final_results:
+                writer.writerow(row)
 
     def run(self):
         url = "https://www.zillow.com/homes/McKinney,-TX_rb/"
         params = {
-            "pagination": {},
+            "pagination": {"currentPage": 1},
             "usersSearchTerm": "McKinney, TX",
             "mapBounds": {
                 "west": -96.84334346728515,
@@ -55,7 +73,7 @@ class ZillowScraper:
             "regionSelection": [{"regionId": 32783, "regionType": 6}],
             "isMapVisible": "false",
             "filterState": {
-                "price": {"min": 250000, "max": 360000},
+                "price": {"min": 0, "max": 360000},
                 "mp": {"min": 825, "max": 1188},
                 "ah": {"value": "true"},
                 "con": {"value": "false"},
@@ -71,8 +89,11 @@ class ZillowScraper:
 
         fethced_response = self.fetch(url, params)
         self.parse(fethced_response.text)
+        # if need to parse more than one page
+        # time.sleep(2)
 
 
 if __name__ == "__main__":
     scraper = ZillowScraper()
     scraper.run()
+    scraper.write_to_csv()
